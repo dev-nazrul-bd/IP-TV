@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIFA World Cup Live IPTV</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding-bottom: 40px;
+        }
+
+        /* আপনার রিকোয়েস্ট অনুযায়ী সবার উপরে ভিডিও ১০০% উইডথ এ থাকবে */
+        .video-container {
+            width: 100%;
+            background-color: #000;
+            aspect-ratio: 16 / 9;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-js {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .content-section {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #38bdf8;
+            border-left: 4px solid #38bdf8;
+            padding-left: 10px;
+        }
+
+        /* চ্যানেল বাটন গ্রিড লেআউট */
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        /* সাধারণ বাটন স্টাইল (মোবাইলের জন্য মাঝারি সাইজ) */
+        .channel-btn {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border: 2px solid #475569;
+            color: white;
+            padding: 14px 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60px;
+        }
+
+        .channel-btn:hover {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border-color: #38bdf8;
+            transform: translateY(-2px);
+        }
+
+        .channel-btn.active {
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            border-color: #60a5fa;
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+        }
+
+        /* আপনার রিকোয়েস্ট অনুযায়ী ডেস্কটপ ভার্সনে বাটনগুলো বড় দেখাবে */
+        @media (min-width: 768px) {
+            .content-section {
+                margin: 30px auto;
+            }
+            h2 {
+                font-size: 1.8rem;
+            }
+            .channels-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 18px;
+            }
+            .channel-btn {
+                padding: 22px 15px;
+                font-size: 1.15rem;
+                border-radius: 12px;
+                min-height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="video-container">
+        <video id="iptv-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" poster="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1200&auto=format&fit=crop">
+            <p class="vjs-no-js">ভিডিওটি দেখার জন্য ব্রাউজারে জাভাস্ক্রিপ্ট ইনেবল করুন।</p>
+        </video>
+    </div>
+
+    <div class="content-section">
+        <h2>লাইভ টিভি চ্যানেলসমূহ</h2>
+        <div class="channels-grid" id="channels-container">
+            </div>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.10.0/video.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // প্লেয়ার ইনিশিয়ালাইজ করা
+            const player = videojs('iptv-player', {
+                fluid: true,
+                autoplay: false,
+                liveui: true
+            });
+
+            const container = document.getElementById('channels-container');
+
+            // ব্যাকএন্ড API থেকে বাছাইকৃত চ্যানেল ডেটা ফেচ করা
+            fetch('/api/channels')
+                .then(res => res.json())
+                .then(channels => {
+                    channels.forEach((channel, index) => {
+                        const button = document.createElement('button');
+                        button.className = 'channel-btn';
+                        button.innerText = channel.name;
+
+                        // বাটনে ক্লিক করলে চ্যানেল প্লে হবে (ব্যাকএন্ড প্রক্সির মাধ্যমে)
+                        button.addEventListener('click', () => {
+                            // সব বাটনের একটিভ ক্লাস রিমুভ করা
+                            document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
+                            // বর্তমান বাটনে একটিভ ক্লাস যোগ করা
+                            button.classList.add('active');
+
+                            // ব্যাকএন্ড প্রক্সি লিংক তৈরি করা
+                            const proxyUrl = `/proxy?url=${encodeURIComponent(channel.url)}`;
+                            
+                            // ভিডিও টাইপ নির্ধারণ (.ts ফাইল হলে ভিডিও টাইপ ভিডিও/এমপি৪ বা এইচএলএস প্রক্সিতে কনভার্ট করতে হয়, এখানে HLS হিসেবে সেট করা)
+                            let streamType = 'application/x-mpegURL'; 
+                            if(channel.url.endsWith('.ts')) {
+                                streamType = 'video/mp2t'; // কিছু ব্রাউজারে সরাসরি .ts সাপোর্ট করে না, প্রক্সি সেটি হ্যান্ডেল করবে
+                            }
+
+                            // প্লেয়ারে নতুন সোর্স দেওয়া
+                            player.src({
+                                src: proxyUrl,
+                                type: streamType
+                            });
+                            player.play().catch(err => console.log("Autoplay blocked or stream issue:", err));
+                        });
+
+                        container.appendChild(button);
+
+                        // প্রথম চ্যানেলটি অটোমেটিক প্রথমবার লোড করে রাখা
+                        if(index === 0) {
+                            button.click();
+                        }
+                    });
+                })
+                .catch(err => {
+                    container.innerHTML = `<p style="color:red;">চ্যানেল লিস্ট লোড করা যাচ্ছে না: ${err.message}</p>`;
+                });
+        });
+    </script>
+</body>
+  </html>
